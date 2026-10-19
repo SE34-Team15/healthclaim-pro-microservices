@@ -1,0 +1,119 @@
+# PostgreSQL 16
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: healthclaim-postgres
+  namespace: healthclaim
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: healthclaim-postgres
+  template:
+    metadata:
+      labels:
+        app: healthclaim-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - name: POSTGRES_USER
+              value: healthclaim_user
+            - name: POSTGRES_PASSWORD
+              value: healthclaim_pass
+            - name: POSTGRES_DB
+              value: healthclaim_db
+          ports:
+            - containerPort: 5432
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: healthclaim-postgres
+  namespace: healthclaim
+spec:
+  selector:
+    app: healthclaim-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+# Redis 7 Distributed Cache
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: healthclaim-redis
+  namespace: healthclaim
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: healthclaim-redis
+  template:
+    metadata:
+      labels:
+        app: healthclaim-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+          ports:
+            - containerPort: 6379
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: healthclaim-redis
+  namespace: healthclaim
+spec:
+  selector:
+    app: healthclaim-redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+---
+# RabbitMQ 3 Distributed Event Broker
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: healthclaim-rabbitmq
+  namespace: healthclaim
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: healthclaim-rabbitmq
+  template:
+    metadata:
+      labels:
+        app: healthclaim-rabbitmq
+    spec:
+      containers:
+        - name: rabbitmq
+          image: rabbitmq:3.13-management-alpine
+          env:
+            - name: RABBITMQ_DEFAULT_USER
+              value: healthclaim_mq
+            - name: RABBITMQ_DEFAULT_PASS
+              value: healthclaim_mq_pass
+          ports:
+            - containerPort: 5672
+            - containerPort: 15672
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: healthclaim-rabbitmq
+  namespace: healthclaim
+spec:
+  selector:
+    app: healthclaim-rabbitmq
+  ports:
+    - name: amqp
+      port: 5672
+      targetPort: 5672
+    - name: management
+      port: 15672
+      targetPort: 15672

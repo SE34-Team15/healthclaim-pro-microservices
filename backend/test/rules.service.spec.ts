@@ -57,6 +57,41 @@ describe('RuleEngineService', () => {
       expect(result.results[0].isPassed).toBe(true);
     });
 
+    it('should read from Redis cache without querying Prisma when cache hits', async () => {
+      const mockRedis: any = {
+        get: vi.fn().mockResolvedValue([
+          {
+            id: 'cached-rule-1',
+            code: 'CACHED_RULE',
+            name: 'Cached Rule',
+            astDefinition: {
+              type: 'COMPARISON',
+              field: 'totalAmount',
+              operator: ComparisonOperator.GREATER_THAN,
+              value: 0,
+            },
+            isActive: true,
+            priority: 1,
+          },
+        ]),
+        set: vi.fn(),
+        del: vi.fn(),
+        getMetrics: vi.fn().mockReturnValue({ hitRatio: 100 }),
+      };
+
+      const cachedService = new RuleEngineService(prismaMock, mockRedis);
+      const result = await cachedService.evaluateCandidate({
+        category: 'CONSULTATION',
+        totalAmount: 50,
+        hospitalName: 'Hospital',
+        items: [],
+      });
+
+      expect(result.allPassed).toBe(true);
+      expect(mockRedis.get).toHaveBeenCalledWith('healthclaim:rules:active');
+      expect(prismaMock.complianceRule.findMany).not.toHaveBeenCalled();
+    });
+
     it('should return allPassed = false if any rule evaluation fails', async () => {
       prismaMock.complianceRule.findMany.mockResolvedValue([
         {

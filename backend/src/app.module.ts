@@ -13,6 +13,9 @@ import { StorageModule } from './storage/storage.module';
 import { DepartmentsModule } from './departments/departments.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { HealthModule } from './health/health.module';
+import { RedisModule } from './common/redis/redis.module';
+import { RabbitMQModule } from './common/rabbitmq/rabbitmq.module';
+import { SettlementModule } from './settlement/settlement.module';
 
 @Module({
   imports: [
@@ -21,6 +24,8 @@ import { HealthModule } from './health/health.module';
       envFilePath: ['.env', '../.env'],
     }),
     EventEmitterModule.forRoot(),
+    RedisModule,
+    RabbitMQModule,
     PrismaModule,
     AuditModule,
     AuthModule,
@@ -33,6 +38,7 @@ import { HealthModule } from './health/health.module';
     DepartmentsModule,
     AnalyticsModule,
     HealthModule,
+    SettlementModule,
   ],
 })
 export class AppModule {}

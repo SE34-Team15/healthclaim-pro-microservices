@@ -1,0 +1,186 @@
+# 1. Claim Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: claim-service
+  namespace: healthclaim
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: claim-service
+  template:
+    metadata:
+      labels:
+        app: claim-service
+    spec:
+      containers:
+        - name: claim-service
+          image: healthclaim-microservice:latest
+          imagePullPolicy: IfNotPresent
+          command: ["node", "dist/entrypoints/claim-service.js"]
+          envFrom:
+            - configMapRef:
+                name: healthclaim-config
+            - secretRef:
+                name: healthclaim-secrets
+          env:
+            - name: PORT
+              value: "3001"
+          ports:
+            - containerPort: 3001
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: claim-service
+  namespace: healthclaim
+spec:
+  selector:
+    app: claim-service
+  ports:
+    - port: 3001
+      targetPort: 3001
+---
+# 2. Rule Engine Service (Target for HPA Auto-Scaling)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rule-engine-service
+  namespace: healthclaim
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rule-engine-service
+  template:
+    metadata:
+      labels:
+        app: rule-engine-service
+    spec:
+      containers:
+        - name: rule-engine-service
+          image: healthclaim-microservice:latest
+          imagePullPolicy: IfNotPresent
+          command: ["node", "dist/entrypoints/rule-engine-service.js"]
+          envFrom:
+            - configMapRef:
+                name: healthclaim-config
+            - secretRef:
+                name: healthclaim-secrets
+          env:
+            - name: PORT
+              value: "3002"
+          ports:
+            - containerPort: 3002
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rule-engine-service
+  namespace: healthclaim
+spec:
+  selector:
+    app: rule-engine-service
+  ports:
+    - port: 3002
+      targetPort: 3002
+---
+# 3. Actuarial Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: actuarial-service
+  namespace: healthclaim
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: actuarial-service
+  template:
+    metadata:
+      labels:
+        app: actuarial-service
+    spec:
+      containers:
+        - name: actuarial-service
+          image: healthclaim-microservice:latest
+          imagePullPolicy: IfNotPresent
+          command: ["node", "dist/entrypoints/actuarial-service.js"]
+          envFrom:
+            - configMapRef:
+                name: healthclaim-config
+            - secretRef:
+                name: healthclaim-secrets
+          env:
+            - name: PORT
+              value: "3003"
+          ports:
+            - containerPort: 3003
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: actuarial-service
+  namespace: healthclaim
+spec:
+  selector:
+    app: actuarial-service
+  ports:
+    - port: 3003
+      targetPort: 3003
+---
+# 4. Asynchronous Settlement Background Worker
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: settlement-worker
+  namespace: healthclaim
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: settlement-worker
+  template:
+    metadata:
+      labels:
+        app: settlement-worker
+    spec:
+      containers:
+        - name: settlement-worker
+          image: healthclaim-microservice:latest
+          imagePullPolicy: IfNotPresent
+          command: ["node", "dist/entrypoints/settlement-worker.js"]
+          envFrom:
+            - configMapRef:
+                name: healthclaim-config
+            - secretRef:
+                name: healthclaim-secrets
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "300m"
+              memory: "256Mi"

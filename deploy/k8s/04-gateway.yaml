@@ -1,0 +1,52 @@
+# HealthClaim Pro API Gateway
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: healthclaim
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+        - name: api-gateway
+          image: healthclaim-microservice:latest
+          imagePullPolicy: IfNotPresent
+          command: ["node", "dist/entrypoints/gateway.js"]
+          envFrom:
+            - configMapRef:
+                name: healthclaim-config
+            - secretRef:
+                name: healthclaim-secrets
+          env:
+            - name: PORT
+              value: "4000"
+          ports:
+            - containerPort: 4000
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: healthclaim
+spec:
+  type: NodePort
+  selector:
+    app: api-gateway
+  ports:
+    - port: 4000
+      targetPort: 4000
+      nodePort: 30400

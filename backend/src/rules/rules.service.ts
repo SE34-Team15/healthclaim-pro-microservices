@@ -3,8 +3,10 @@ import {
   Logger,
   NotFoundException,
   ConflictException,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { RedisService } from '../common/redis/redis.service';
 import {
   RuleEvaluationResult,
   AstNode,
@@ -35,20 +37,41 @@ export interface EvaluationCandidate extends Record<string, any> {
 @Injectable()
 export class RuleEngineService {
   private readonly logger = new Logger(RuleEngineService.name);
+  private static readonly CACHE_KEY_ACTIVE_RULES = 'healthclaim:rules:active';
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly redis?: RedisService,
+  ) {}
 
   /**
-   * Evaluates a claim candidate against all active compliance rules stored in database.
+   * Evaluates a claim candidate against active compliance rules.
+   * Leverages Redis in-memory cache for hot AST rule definitions.
+   * @param bypassCache If true, bypasses Redis and forces direct DB query (for k6 cache ablation benchmark)
    */
-  async evaluateCandidate(candidate: EvaluationCandidate): Promise<{
+  async evaluateCandidate(
+    candidate: EvaluationCandidate,
+    bypassCache = false,
+  ): Promise<{
     allPassed: boolean;
     results: RuleEvaluationResult[];
   }> {
-    const rules = await this.prisma.complianceRule.findMany({
-      where: { isActive: true },
-      orderBy: { priority: 'asc' },
-    });
+    let rules: any[] | null = null;
+
+    if (!bypassCache && this.redis) {
+      rules = await this.redis.get<any[]>(RuleEngineService.CACHE_KEY_ACTIVE_RULES);
+    }
+
+    if (!rules) {
+      rules = await this.prisma.complianceRule.findMany({
+        where: { isActive: true },
+        orderBy: { priority: 'asc' },
+      });
+
+      if (!bypassCache && this.redis) {
+        await this.redis.set(RuleEngineService.CACHE_KEY_ACTIVE_RULES, rules, 3600);
+      }
+    }
 
     const results: RuleEvaluationResult[] = [];
     let allPassed = true;
@@ -133,6 +156,7 @@ export class RuleEngineService {
       },
     });
 
+    await this.invalidateCache();
     return rule;
   }
 
@@ -170,6 +194,7 @@ export class RuleEngineService {
       },
     });
 
+    await this.invalidateCache();
     return updated;
   }
 
@@ -195,6 +220,7 @@ export class RuleEngineService {
       },
     });
 
+    await this.invalidateCache();
     return this.getAllRules();
   }
 
@@ -219,6 +245,24 @@ export class RuleEngineService {
       },
     });
 
+    await this.invalidateCache();
     return { message: `Compliance rule "${rule.name}" deleted successfully` };
+  }
+
+  /**
+   * Manually invalidate cached active rules (e.g. for testing or external sync)
+   */
+  async invalidateCache(): Promise<void> {
+    if (this.redis) {
+      await this.redis.del(RuleEngineService.CACHE_KEY_ACTIVE_RULES);
+      this.logger.debug(`Invalidated cache key: ${RuleEngineService.CACHE_KEY_ACTIVE_RULES}`);
+    }
+  }
+
+  /**
+   * Expose cache metrics for k6 performance reporting
+   */
+  getCacheMetrics() {
+    return this.redis?.getMetrics() ?? { connected: false, hits: 0, misses: 0, totalRequests: 0, hitRatio: 0 };
   }
 }

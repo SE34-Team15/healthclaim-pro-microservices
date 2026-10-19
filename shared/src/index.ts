@@ -6,3 +6,4 @@ export * from './schemas/rule.schema';
 export * from './schemas/claim.schema';
 export * from './schemas/department.schema';
 export * from './types/api-response';
+export * from './events';

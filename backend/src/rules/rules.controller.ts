@@ -23,16 +23,38 @@ import {
   ReorderRulesSchema,
 } from '@healthclaim/shared';
 import { ZodValidationPipe } from '../common/pipes/zod-validation.pipe';
+import { Query } from '@nestjs/common';
 
 @Controller('rules')
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class RulesController {
   constructor(private readonly ruleEngineService: RuleEngineService) {}
+
+  /**
+   * Benchmark Evaluation Endpoint for k6 Scalability & Cache Stress Testing
+   * Supports ?bypassCache=true to benchmark DB saturation vs Redis cache acceleration
+   */
+  @Post('benchmark-evaluate')
+  async benchmarkEvaluate(
+    @Body() candidate: any,
+    @Query('bypassCache') bypassCache?: string,
+  ) {
+    const shouldBypass = bypassCache === 'true' || bypassCache === '1';
+    const startTime = Date.now();
+    const result = await this.ruleEngineService.evaluateCandidate(candidate, shouldBypass);
+    const durationMs = Date.now() - startTime;
+    return {
+      ...result,
+      durationMs,
+      cached: !shouldBypass,
+      cacheMetrics: this.ruleEngineService.getCacheMetrics(),
+    };
+  }
 
   /**
    * List all compliance rules (Admin & Claim Officer)
    */
   @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SYSTEM_ADMIN, UserRole.CLAIM_OFFICER)
   async getAllRules() {
     return this.ruleEngineService.getAllRules();
@@ -42,6 +64,7 @@ export class RulesController {
    * Reorder compliance rules execution order (System Admin only)
    */
   @Patch('reorder')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SYSTEM_ADMIN)
   async reorderRules(
     @Body(new ZodValidationPipe(ReorderRulesSchema)) dto: ReorderRulesDto,
@@ -54,6 +77,7 @@ export class RulesController {
    * Create a new AST compliance rule (System Admin only)
    */
   @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SYSTEM_ADMIN)
   async createRule(
     @Body(new ZodValidationPipe(CreateComplianceRuleSchema)) dto: CreateComplianceRuleDto,
@@ -66,6 +90,7 @@ export class RulesController {
    * Update an existing AST compliance rule (System Admin only)
    */
   @Patch(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SYSTEM_ADMIN)
   async updateRule(
     @Param('id') id: string,
@@ -79,6 +104,7 @@ export class RulesController {
    * Delete a compliance rule (System Admin only)
    */
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SYSTEM_ADMIN)
   async deleteRule(
     @Param('id') id: string,

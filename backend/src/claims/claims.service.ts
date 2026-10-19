@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Logger,
+  Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { RuleEngineService } from '../rules/rules.service';
@@ -11,13 +12,18 @@ import { ActuarialService } from '../actuarial/actuarial.service';
 import { AuditService } from '../audit/audit.service';
 import { StorageService } from '../storage/storage.service';
 import { ClaimStateMachine } from './state-machine/claim-state-machine';
+import { RabbitMQService } from '../common/rabbitmq/rabbitmq.service';
 import {
   CreateClaimRequest,
   ClaimResponseDto,
   ClaimStatus,
   UserRole,
   ActuarialCalculationPreviewDto,
+  ClaimSubmittedEvent,
+  ClaimSettledEvent,
+  DomainRoutingKey,
 } from '@healthclaim/shared';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class ClaimsService {
@@ -30,6 +36,7 @@ export class ClaimsService {
     private readonly auditService: AuditService,
     private readonly storageService: StorageService,
     private readonly stateMachine: ClaimStateMachine,
+    @Optional() private readonly rabbitMQ?: RabbitMQService,
   ) {}
 
   /**
@@ -260,6 +267,29 @@ export class ClaimsService {
       ipAddress,
     });
 
+    // 5. Publish Asynchronous Domain Event via RabbitMQ
+    if (this.rabbitMQ) {
+      try {
+        const submittedEvent: ClaimSubmittedEvent = {
+          eventId: crypto.randomUUID(),
+          claimId: claim.id,
+          claimNumber: claim.claimNumber,
+          userId: claim.userId,
+          category: claim.category as any,
+          hospitalName: claim.hospitalName,
+          hospitalGrade: claim.hospitalGrade || 'GRADE_A',
+          invoiceDate: claim.invoiceDate.toISOString(),
+          totalAmount: Number(claim.totalAmount),
+          items: dto.items,
+          attachmentIds: dto.attachmentIds || [],
+          submittedAt: new Date().toISOString(),
+        };
+        await this.rabbitMQ.publishEvent(DomainRoutingKey.CLAIM_SUBMITTED, submittedEvent);
+      } catch (err: any) {
+        this.logger.warn(`Failed to publish ClaimSubmittedEvent: ${err.message}`);
+      }
+    }
+
     return this.mapToDto(claim);
   }
 
@@ -319,6 +349,27 @@ export class ClaimsService {
 
       return transitioned;
     });
+
+    // Publish ClaimSettledEvent when settled
+    if (updatedClaim.status === ClaimStatus.SETTLED && this.rabbitMQ) {
+      try {
+        const settledEvent: ClaimSettledEvent = {
+          eventId: crypto.randomUUID(),
+          claimId: updatedClaim.id,
+          claimNumber: updatedClaim.claimNumber,
+          userId: updatedClaim.userId,
+          claimantName: `${updatedClaim.user?.firstName || ''} ${updatedClaim.user?.lastName || ''}`.trim() || 'Employee',
+          claimantEmail: updatedClaim.user?.email || 'claimant@healthclaim.pro',
+          approvedAmount: Number(updatedClaim.approvedAmount),
+          settlementReference: `SETTLE-${updatedClaim.claimNumber}`,
+          payoutMethod: 'DIRECT_BANK_TRANSFER_MOCK',
+          settledAt: new Date().toISOString(),
+        };
+        await this.rabbitMQ.publishEvent(DomainRoutingKey.CLAIM_SETTLED, settledEvent);
+      } catch (err: any) {
+        this.logger.warn(`Failed to publish ClaimSettledEvent: ${err.message}`);
+      }
+    }
 
     return this.mapToDto(updatedClaim);
   }
