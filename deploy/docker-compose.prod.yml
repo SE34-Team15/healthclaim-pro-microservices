@@ -1,0 +1,168 @@
+services:
+  # ============================================================================
+  # 1. Distributed Infrastructure Tier
+  # ============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: hc-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: healthclaim_user
+      POSTGRES_PASSWORD: healthclaim_pass
+      POSTGRES_DB: healthclaim_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U healthclaim_user -d healthclaim_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: hc-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: hc-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: healthclaim_mq
+      RABBITMQ_DEFAULT_PASS: healthclaim_mq_pass
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: hc-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/data
+
+  # ============================================================================
+  # 2. Core Microservices Tier
+  # ============================================================================
+  claim-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: hc-claim-service
+    restart: unless-stopped
+    command: ["node", "dist/entrypoints/claim-service.js"]
+    environment:
+      PORT: 3001
+      NODE_ENV: production
+      DATABASE_URL: postgresql://healthclaim_user:healthclaim_pass@postgres:5432/healthclaim_db?schema=public
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://healthclaim_mq:healthclaim_mq_pass@rabbitmq:5672
+      S3_ENDPOINT: http://minio:9000
+      JWT_SECRET: super_secret_healthclaim_pro_jwt_key_development_2026!
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  rule-engine-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: hc-rule-service
+    restart: unless-stopped
+    command: ["node", "dist/entrypoints/rule-engine-service.js"]
+    environment:
+      PORT: 3002
+      NODE_ENV: production
+      DATABASE_URL: postgresql://healthclaim_user:healthclaim_pass@postgres:5432/healthclaim_db?schema=public
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://healthclaim_mq:healthclaim_mq_pass@rabbitmq:5672
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  actuarial-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: hc-actuarial-service
+    restart: unless-stopped
+    command: ["node", "dist/entrypoints/actuarial-service.js"]
+    environment:
+      PORT: 3003
+      NODE_ENV: production
+      DATABASE_URL: postgresql://healthclaim_user:healthclaim_pass@postgres:5432/healthclaim_db?schema=public
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://healthclaim_mq:healthclaim_mq_pass@rabbitmq:5672
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  settlement-worker:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: hc-settlement-worker
+    restart: unless-stopped
+    command: ["node", "dist/entrypoints/settlement-worker.js"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://healthclaim_user:healthclaim_pass@postgres:5432/healthclaim_db?schema=public
+      REDIS_URL: redis://redis:6379
+      RABBITMQ_URL: amqp://healthclaim_mq:healthclaim_mq_pass@rabbitmq:5672
+      S3_ENDPOINT: http://minio:9000
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  # ============================================================================
+  # 3. Platform API Gateway & Frontend SPA Ingress
+  # ============================================================================
+  api-gateway:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: hc-gateway
+    restart: unless-stopped
+    command: ["node", "dist/entrypoints/gateway.js"]
+    environment:
+      PORT: 4000
+      NODE_ENV: production
+      CLAIM_SERVICE_URL: http://claim-service:3001
+      RULE_ENGINE_SERVICE_URL: http://rule-engine-service:3002
+      ACTUARIAL_SERVICE_URL: http://actuarial-service:3003
+    ports:
+      - "4000:4000"
+    depends_on:
+      - claim-service
+      - rule-engine-service
+      - actuarial-service
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+  minio_data:
