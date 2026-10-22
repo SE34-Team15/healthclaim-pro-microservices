@@ -18,8 +18,15 @@ if [ "$ACTION" == "delete" ]; then
   exit 0
 fi
 
-echo ">>> 1. Creating Namespace, ConfigMap & Secrets..."
+echo ">>> 1. Creating Namespace & ConfigMap..."
 kubectl apply -f deploy/k8s/01-config.yaml
+
+echo ">>> Validating Kubernetes Secrets..."
+if ! kubectl get secret healthclaim-secrets -n healthclaim >/dev/null 2>&1; then
+  echo ">>> [ERROR] Secret 'healthclaim-secrets' not found in namespace 'healthclaim'!"
+  echo ">>> Please inject secrets from AWS SSM Parameter Store (/healthclaim/prod/*) or deploy/k8s/01-secrets.yaml.example."
+  exit 1
+fi
 
 echo ">>> 2. Deploying Shared Infrastructure (Postgres, Redis 7, RabbitMQ 3)..."
 kubectl apply -f deploy/k8s/02-infra.yaml

@@ -23,16 +23,4 @@ data:
   S3_SETTLEMENT_BUCKET: "healthclaim-settlements"
   EMAIL_FROM: "HealthClaim Pro <noreply@healthclaim.pro>"
   FRONTEND_URL: "https://ms.healthclaim.pro"
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: healthclaim-secrets
-  namespace: healthclaim
-type: Opaque
-stringData:
-  DATABASE_URL: "postgresql://healthclaim_user:healthclaim_pass@healthclaim-postgres:5432/healthclaim_db?schema=public"
-  JWT_SECRET: "super_secret_healthclaim_pro_jwt_key_development_2026!"
-  S3_ACCESS_KEY: "minioadmin"
-  S3_SECRET_KEY: "minioadmin"
-  RESEND_API_KEY: ""
+
