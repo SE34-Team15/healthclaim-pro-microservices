@@ -204,12 +204,10 @@ jobs:
 
   # ============================================================================
   # STAGE 4: CODEQL STATIC APPLICATION SECURITY TESTING (SAST)
-  # (Configured with continue-on-error for private repositories without GHAS license)
   # ============================================================================
   codeql-sast-scan:
-    name: CodeQL SAST Security Analysis
+    name: GitHub CodeQL SAST Analysis
     runs-on: ubuntu-latest
-    continue-on-error: true
     permissions:
       security-events: write
       actions: read
@@ -219,18 +217,25 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Initialize CodeQL Analysis Engine
-        uses: github/codeql-action/init@v3
-        continue-on-error: true
+      - name: Initialize CodeQL v4
+        uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
           queries: security-extended,security-and-quality
 
-      - name: Perform CodeQL Static Security Scan
-        uses: github/codeql-action/analyze@v3
-        continue-on-error: true
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
         with:
           category: '/language:javascript-typescript'
+          output: 'results'
+
+      - name: Upload CodeQL SARIF Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: codeql-sast-report
+          path: results/*.sarif
+          retention-days: 14
 
   # ============================================================================
   # STAGE 5: OWASP ZAP DYNAMIC PENETRATION TESTING (DAST)
@@ -335,6 +340,7 @@ jobs:
       - lint-and-typecheck
       - unit-tests-and-coverage
       - playwright-e2e
+      - codeql-sast-scan
     permissions:
       contents: read
 
