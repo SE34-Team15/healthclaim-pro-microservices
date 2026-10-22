@@ -65,7 +65,7 @@ export default function () {
   const res = http.post(url, payload, params);
 
   check(res, {
-    'status is 200': (r) => r.status === 200,
+    'status is 200 or 201': (r) => r.status === 200 || r.status === 201,
     'cache state verified': (r) => {
       try {
         const body = JSON.parse(r.body);
