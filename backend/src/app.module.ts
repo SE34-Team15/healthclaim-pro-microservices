@@ -15,6 +15,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { HealthModule } from './health/health.module';
 import { RedisModule } from './common/redis/redis.module';
 import { RabbitMQModule } from './common/rabbitmq/rabbitmq.module';
+import { MailModule } from './common/mail/mail.module';
 import { SettlementModule } from './settlement/settlement.module';
 
 @Module({
@@ -26,6 +27,7 @@ import { SettlementModule } from './settlement/settlement.module';
     EventEmitterModule.forRoot(),
     RedisModule,
     RabbitMQModule,
+    MailModule,
     PrismaModule,
     AuditModule,
     AuthModule,

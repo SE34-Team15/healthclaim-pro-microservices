@@ -14,6 +14,7 @@ import { AnalyticsModule } from '../analytics/analytics.module';
 import { HealthModule } from '../health/health.module';
 import { RedisModule } from '../common/redis/redis.module';
 import { RabbitMQModule } from '../common/rabbitmq/rabbitmq.module';
+import { MailModule } from '../common/mail/mail.module';
 import { RulesModule } from '../rules/rules.module';
 import { ActuarialModule } from '../actuarial/actuarial.module';
 import { HttpExceptionFilter } from '../common/filters/http-exception.filter';
@@ -28,6 +29,7 @@ import { TransformInterceptor } from '../common/interceptors/transform.intercept
     EventEmitterModule.forRoot(),
     RedisModule,
     RabbitMQModule,
+    MailModule,
     PrismaModule,
     RulesModule,
     ActuarialModule,

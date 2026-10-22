@@ -1,7 +1,8 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { RabbitMQService } from '../common/rabbitmq/rabbitmq.service';
 import { StorageService } from '../storage/storage.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { MailService } from '../common/mail/mail.service';
 import {
   ClaimSettledEvent,
   DomainQueue,
@@ -31,6 +32,7 @@ export class SettlementWorkerService implements OnModuleInit {
     private readonly rabbitMQ: RabbitMQService,
     private readonly storageService: StorageService,
     private readonly prisma: PrismaService,
+    @Optional() private readonly mailService?: MailService,
   ) {}
 
   async onModuleInit() {
@@ -80,7 +82,18 @@ export class SettlementWorkerService implements OnModuleInit {
     const storageKey = `vouchers/settlement-${event.claimNumber}.json`;
     await this.storageService.storeFile(voucherPayload, storageKey, { contentType: 'application/json' });
 
-    // 2. Record Immutable Audit Trail
+    // 2. Dispatch Transactional Settlement Notification via Resend
+    let emailDispatchResult: any = null;
+    if (this.mailService) {
+      try {
+        emailDispatchResult = await this.mailService.sendSettlementVoucherEmail(voucher);
+        this.logger.log(`Settlement voucher email dispatched to ${voucher.claimantEmail} (Success: ${emailDispatchResult.success})`);
+      } catch (mailErr: any) {
+        this.logger.error(`Settlement voucher email dispatch failed for ${voucher.claimantEmail}: ${mailErr.message}`);
+      }
+    }
+
+    // 3. Record Immutable Audit Trail
     try {
       await this.prisma.auditLog.create({
         data: {
@@ -95,6 +108,7 @@ export class SettlementWorkerService implements OnModuleInit {
             storageKey,
             payoutMethod: event.payoutMethod,
             notificationDispatchedTo: event.claimantEmail,
+            emailMessageId: emailDispatchResult?.messageId || null,
           },
         },
       });

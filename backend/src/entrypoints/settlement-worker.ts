@@ -7,6 +7,7 @@ import { StorageModule } from '../storage/storage.module';
 import { SettlementModule } from '../settlement/settlement.module';
 import { RedisModule } from '../common/redis/redis.module';
 import { RabbitMQModule } from '../common/rabbitmq/rabbitmq.module';
+import { MailModule } from '../common/mail/mail.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { RabbitMQModule } from '../common/rabbitmq/rabbitmq.module';
     EventEmitterModule.forRoot(),
     RedisModule,
     RabbitMQModule,
+    MailModule,
     PrismaModule,
     StorageModule,
     SettlementModule,

@@ -57,4 +57,49 @@ describe('SettlementWorkerService', () => {
     expect(mockPrisma.auditLog.create).toHaveBeenCalled();
     expect(worker.getProcessedCount()).toBe(1);
   });
+
+  it('should dispatch email notification when MailService is available', async () => {
+    const mockMailService: any = {
+      sendSettlementVoucherEmail: vi.fn().mockResolvedValue({ success: true, messageId: 'msg-999' }),
+    };
+
+    const workerWithMail = new SettlementWorkerService(
+      mockRabbitMQ,
+      mockStorageService,
+      mockPrisma,
+      mockMailService,
+    );
+
+    const event: ClaimSettledEvent = {
+      eventId: 'evt-2',
+      claimId: 'claim-789',
+      claimNumber: 'CLM-2026-MAIL',
+      userId: 'user-789',
+      claimantName: 'Alice Smith',
+      claimantEmail: 'alice@example.com',
+      approvedAmount: 888.0,
+      settlementReference: 'SETTLE-CLM-2026-MAIL',
+      payoutMethod: 'GIRO_DISBURSEMENT',
+      settledAt: new Date().toISOString(),
+    };
+
+    await workerWithMail.processSettlement(event);
+
+    expect(mockMailService.sendSettlementVoucherEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        claimNumber: 'CLM-2026-MAIL',
+        claimantEmail: 'alice@example.com',
+        approvedAmount: 888.0,
+      }),
+    );
+    expect(mockPrisma.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          details: expect.objectContaining({
+            emailMessageId: 'msg-999',
+          }),
+        }),
+      }),
+    );
+  });
 });

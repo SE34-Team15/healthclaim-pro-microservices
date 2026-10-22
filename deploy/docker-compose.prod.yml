@@ -74,6 +74,9 @@ services:
       REDIS_URL: redis://redis:6379
       RABBITMQ_URL: amqp://healthclaim_mq:healthclaim_mq_pass@rabbitmq:5672
       S3_ENDPOINT: http://minio:9000
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-HealthClaim Pro <noreply@healthclaim.pro>}
+      FRONTEND_URL: ${FRONTEND_URL:-https://ms.healthclaim.pro}
       JWT_SECRET: super_secret_healthclaim_pro_jwt_key_development_2026!
     depends_on:
       postgres:
@@ -134,6 +137,9 @@ services:
       REDIS_URL: redis://redis:6379
       RABBITMQ_URL: amqp://healthclaim_mq:healthclaim_mq_pass@rabbitmq:5672
       S3_ENDPOINT: http://minio:9000
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-HealthClaim Pro <noreply@healthclaim.pro>}
+      FRONTEND_URL: ${FRONTEND_URL:-https://ms.healthclaim.pro}
     depends_on:
       rabbitmq:
         condition: service_healthy
