@@ -35,6 +35,19 @@ export const SettingsPage: React.FC = () => {
   const [department, setDepartment] = useState('');
   const [departments, setDepartments] = useState<DepartmentResponseDto[]>([]);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [sendingVerification, setSendingVerification] = useState(false);
+
+  const handleSendVerificationEmail = async () => {
+    setSendingVerification(true);
+    try {
+      const res = await apiClient.post<any, { message: string }>('/auth/send-verification-email');
+      toast.success(res.message || 'Verification email sent. Please check your inbox.');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to send verification email');
+    } finally {
+      setSendingVerification(false);
+    }
+  };
 
   // Password Form State
   const [currentPassword, setCurrentPassword] = useState('');
@@ -73,6 +86,7 @@ export const SettingsPage: React.FC = () => {
 
     setSavingProfile(true);
     try {
+      const isEmailChanged = Boolean(user?.email && email.trim().toLowerCase() !== user.email.toLowerCase());
       await apiClient.patch('/users/me', {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
@@ -81,7 +95,14 @@ export const SettingsPage: React.FC = () => {
       });
 
       await refreshProfile();
-      toast.success('Account profile updated successfully');
+      if (isEmailChanged) {
+        toast.success(
+          `Profile updated! A verification link has been sent to ${email.trim()}. Please check your inbox to verify your new address.`,
+          { duration: 7000 },
+        );
+      } else {
+        toast.success('Account profile updated successfully');
+      }
     } catch (err: any) {
       toast.error(err.message || 'Failed to update profile');
     } finally {
@@ -192,9 +213,19 @@ export const SettingsPage: React.FC = () => {
                       <CheckCircle2 className="h-3 w-3" /> Verified
                     </span>
                   ) : (
-                    <span className="text-[10px] text-amber-600 font-semibold flex items-center gap-1">
-                      <AlertTriangle className="h-3 w-3" /> Unverified
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-amber-600 font-semibold flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3" /> Unverified
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleSendVerificationEmail}
+                        disabled={sendingVerification}
+                        className="text-[10px] text-blue-600 hover:underline font-medium cursor-pointer"
+                      >
+                        {sendingVerification ? 'Sending...' : 'Resend Link'}
+                      </button>
+                    </div>
                   )}
                 </div>
                 <Input

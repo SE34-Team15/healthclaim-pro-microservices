@@ -34,6 +34,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
+    if (!user.isEmailVerified) {
+      throw new UnauthorizedException('Please verify your email address before logging in. An activation link has been sent to your email.');
+    }
+
     const payload = { sub: user.id, email: user.email, role: user.role };
     const accessToken = this.jwtService.sign(payload);
 
@@ -124,6 +128,14 @@ export class AuthService {
       },
     });
 
+    // Automatically send verification email on registration
+    try {
+      await this.sendVerificationEmail(user.id);
+    } catch (e: any) {
+      // Do not block registration if email delivery encounters transient issues
+      console.warn(`[AuthService] Non-blocking email dispatch warning: ${e.message}`);
+    }
+
     const payload = { sub: user.id, email: user.email, role: user.role };
     const accessToken = this.jwtService.sign(payload);
 
@@ -160,6 +172,13 @@ export class AuthService {
     const token = Math.random().toString(36).substring(2) + Date.now().toString(36);
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
+    // Clean up any stale verification tokens for this email address
+    if (this.prisma.verificationToken?.deleteMany) {
+      await this.prisma.verificationToken.deleteMany({
+        where: { email: user.email },
+      });
+    }
+
     await this.prisma.verificationToken.create({
       data: {
         email: user.email,
@@ -176,6 +195,22 @@ export class AuthService {
     }
 
     return { message: 'Verification email sent successfully' };
+  }
+
+  /**
+   * Resends email verification link by email address without requiring active authentication session
+   */
+  async resendVerificationByEmail(email: string): Promise<{ message: string }> {
+    const user = await this.prisma.user.findUnique({
+      where: { email: email.toLowerCase().trim() },
+    });
+    if (!user) {
+      return { message: 'If an account exists with this email address, a verification link has been sent.' };
+    }
+    if (user.isEmailVerified) {
+      return { message: 'Your email address is already verified. You can sign in directly.' };
+    }
+    return this.sendVerificationEmail(user.id);
   }
 
   /**

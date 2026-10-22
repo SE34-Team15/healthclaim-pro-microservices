@@ -122,6 +122,26 @@ describe('AuthService (TDD)', () => {
         }),
       ).rejects.toThrow(UnauthorizedException);
     });
+
+    it('should reject unverified user account with UnauthorizedException', async () => {
+      const plainPassword = 'Password123!';
+      const hashedPassword = await bcrypt.hash(plainPassword, 10);
+
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: 'usr-unverified',
+        email: 'unverified@healthclaim.pro',
+        passwordHash: hashedPassword,
+        status: UserStatus.ACTIVE,
+        isEmailVerified: false,
+      });
+
+      await expect(
+        authService.login({
+          email: 'unverified@healthclaim.pro',
+          password: plainPassword,
+        }),
+      ).rejects.toThrow('Please verify your email address before logging in');
+    });
   });
 
   describe('register', () => {
@@ -231,6 +251,29 @@ describe('AuthService (TDD)', () => {
       await expect(authService.verifyEmail('invalid-token')).rejects.toThrow(
         BadRequestException,
       );
+    });
+
+    it('should resend verification link by email for unverified user', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue({
+        id: 'usr-resend',
+        email: 'resend@healthclaim.pro',
+        firstName: 'Resend',
+        isEmailVerified: false,
+      });
+      mockPrismaService.verificationToken.create.mockResolvedValue({
+        id: 'tok-resend',
+        token: 'sample-resend-tok',
+      });
+
+      const res = await authService.resendVerificationByEmail('resend@healthclaim.pro');
+      expect(res.message).toContain('Verification email sent');
+    });
+
+    it('should return safe message when email is not found to prevent user enumeration', async () => {
+      mockPrismaService.user.findUnique.mockResolvedValue(null);
+
+      const res = await authService.resendVerificationByEmail('nonexistent@healthclaim.pro');
+      expect(res.message).toContain('If an account exists');
     });
   });
 });

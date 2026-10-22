@@ -9,9 +9,18 @@ export interface SettlementEmailPayload {
   claimantEmail: string;
   approvedAmount: number;
   settlementReference: string;
-  payoutMethod: string;
-  settledAt: string;
+  payoutMethod?: string;
+  settledAt?: string;
   issuerSignature?: string;
+}
+
+export interface ClaimStatusEmailPayload {
+  claimNumber: string;
+  claimantName: string;
+  claimantEmail: string;
+  status: string;
+  amount: number;
+  reason?: string;
 }
 
 export interface MailDispatchResult {
@@ -100,7 +109,7 @@ export class MailService {
     <div class="content">
       <div class="greeting">Dear <strong>${voucher.claimantName}</strong>,</div>
       <p style="font-size: 14px; line-height: 1.6; color: #475569;">
-        Your healthcare claim has been reviewed, processed through our automated adjudication pipeline, and successfully approved for payout.
+        Your healthcare claim has been reviewed, adjudicated through our automated rule engine, and approved for reimbursement.
       </p>
       <div class="amount-box">
         <div class="amount-label">Approved Reimbursement Amount</div>
@@ -109,7 +118,7 @@ export class MailService {
       <table class="details-table">
         <tr><td class="label">Claim Number</td><td class="value">${voucher.claimNumber}</td></tr>
         <tr><td class="label">Settlement Reference</td><td class="value">${voucher.settlementReference}</td></tr>
-        <tr><td class="label">Disbursement Method</td><td class="value">${voucher.payoutMethod}</td></tr>
+        <tr><td class="label">Payout Method</td><td class="value">${voucher.payoutMethod || 'Direct Bank Disbursement'}</td></tr>
         <tr><td class="label">Settlement Date</td><td class="value">${settledDateStr}</td></tr>
       </table>
       ${
@@ -119,7 +128,7 @@ export class MailService {
       }
     </div>
     <div class="footer">
-      This is an automated notification from the HealthClaim Pro Enterprise Settlement Engine.<br/>
+      This is an automated notification from HealthClaim Pro Adjudication Platform.<br/>
       © 2026 HealthClaim Pro. All rights reserved.
     </div>
   </div>
@@ -128,6 +137,53 @@ export class MailService {
 `;
 
     return this.dispatchEmail(recipient, subject, html);
+  }
+
+  /**
+   * Dispatches claim status transition updates (e.g. APPROVED, REJECTED).
+   */
+  async sendClaimStatusEmail(payload: ClaimStatusEmailPayload): Promise<MailDispatchResult> {
+    const isApproved = payload.status === 'APPROVED' || payload.status === 'SETTLED';
+    const badgeColor = isApproved ? '#16a34a' : '#dc2626';
+    const badgeText = isApproved ? 'CLAIM APPROVED' : 'ACTION REQUIRED';
+    const subject = `[HealthClaim Pro] Status Update: Claim #${payload.claimNumber} is ${payload.status}`;
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #1e293b; }
+    .container { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+    .header { background: #0f172a; padding: 24px 32px; text-align: center; }
+    .header h1 { margin: 0; color: #ffffff; font-size: 20px; font-weight: 700; }
+    .badge { display: inline-block; margin-top: 8px; background: ${badgeColor}; color: #ffffff; font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 9999px; }
+    .content { padding: 32px; }
+    .footer { padding: 20px 32px; background: #f8fafc; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>HealthClaim Pro</h1>
+      <div class="badge">${badgeText}</div>
+    </div>
+    <div class="content">
+      <p>Dear <strong>${payload.claimantName}</strong>,</p>
+      <p>The adjudication status for claim <strong>#${payload.claimNumber}</strong> (Amount: $${payload.amount.toFixed(2)}) has transitioned to <strong>${payload.status}</strong>.</p>
+      ${payload.reason ? `<p style="padding: 12px; background: #f1f5f9; border-radius: 6px; font-size: 13px;"><strong>Note:</strong> ${payload.reason}</p>` : ''}
+      <p style="margin-top: 24px;">You can view the full claim breakdown and audit history in your <a href="${this.frontendUrl}" style="color: #2563eb;">HealthClaim Pro Portal</a>.</p>
+    </div>
+    <div class="footer">
+      © 2026 HealthClaim Pro. Enterprise Health Insurance Platform.
+    </div>
+  </div>
+</body>
+</html>
+`;
+
+    return this.dispatchEmail(payload.claimantEmail, subject, html);
   }
 
   /**

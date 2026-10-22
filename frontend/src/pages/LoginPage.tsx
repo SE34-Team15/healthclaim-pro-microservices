@@ -24,11 +24,21 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 
-export const LoginPage: React.FC = () => {
+interface LoginPageProps {
+  defaultTab?: 'login' | 'register';
+}
+
+export const LoginPage: React.FC<LoginPageProps> = ({ defaultTab }) => {
   const { login, register } = useAuth();
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
+  const [activeTab, setActiveTab] = useState<'login' | 'register'>(() => {
+    if (defaultTab) return defaultTab;
+    if (typeof window !== 'undefined' && window.location.pathname.includes('/register')) {
+      return 'register';
+    }
+    return 'login';
+  });
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -82,6 +92,7 @@ export const LoginPage: React.FC = () => {
       if (activeTab === 'login') {
         await login({ email, password });
         toast.success('Welcome back to HealthClaim Pro');
+        navigate('/dashboard');
       } else {
         await register({
           email,
@@ -91,11 +102,33 @@ export const LoginPage: React.FC = () => {
           department: department || undefined,
           role,
         });
-        toast.success('Account created successfully');
+        toast.success(
+          'Account created! A verification link has been sent to your email. Please verify before signing in.',
+          { duration: 7000 },
+        );
+        setActiveTab('login');
+        setPassword('');
       }
-      navigate('/dashboard');
     } catch (err: any) {
-      toast.error(err.message || 'Authentication failed. Please check credentials.');
+      const errMsg = err.message || 'Authentication failed. Please check credentials.';
+      if (errMsg.toLowerCase().includes('verify your email')) {
+        toast.error(errMsg, {
+          duration: 10000,
+          action: {
+            label: 'Resend Link',
+            onClick: async () => {
+              try {
+                const res = await apiClient.post<any, { message: string }>('/auth/resend-verification', { email });
+                toast.success(res.message || 'Verification link resent to your email.');
+              } catch (e: any) {
+                toast.error(e.message || 'Failed to resend verification email');
+              }
+            },
+          },
+        });
+      } else {
+        toast.error(errMsg);
+      }
     } finally {
       setLoading(false);
     }
@@ -252,17 +285,21 @@ export const LoginPage: React.FC = () => {
             </div>
 
             <div className="gsap-reveal">
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Password
+              <label className="text-xs font-semibold text-slate-700 mb-1.5 flex items-center justify-between">
+                <span>Password</span>
+                {activeTab === 'register' && (
+                  <span className="text-[10px] text-slate-400 font-normal">Min. 8 characters</span>
+                )}
               </label>
               <div className="relative">
                 <Lock className="h-4 w-4 absolute left-3 top-2.5 text-slate-400" />
                 <Input
                   type="password"
                   required
+                  minLength={activeTab === 'register' ? 8 : 6}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••••••"
+                  placeholder={activeTab === 'register' ? 'At least 8 characters' : '••••••••••••'}
                   className="pl-9"
                 />
               </div>
@@ -285,6 +322,39 @@ export const LoginPage: React.FC = () => {
               </Button>
             </div>
           </form>
+
+          {/* Bottom Switcher Link */}
+          <div className="mt-4 text-center text-xs text-slate-500 gsap-reveal">
+            {activeTab === 'login' ? (
+              <p>
+                Don't have an enterprise account?{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('register');
+                    navigate('/register', { replace: true });
+                  }}
+                  className="font-bold text-[#0a2540] hover:underline cursor-pointer"
+                >
+                  Create one now
+                </button>
+              </p>
+            ) : (
+              <p>
+                Already have an enterprise account?{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('login');
+                    navigate('/login', { replace: true });
+                  }}
+                  className="font-bold text-[#0a2540] hover:underline cursor-pointer"
+                >
+                  Sign in
+                </button>
+              </p>
+            )}
+          </div>
 
           {/* Footer Security Guarantee */}
           <div className="mt-6 pt-5 border-t border-slate-100 flex items-center justify-center gap-2 text-[11px] text-slate-400 gsap-reveal font-medium">
