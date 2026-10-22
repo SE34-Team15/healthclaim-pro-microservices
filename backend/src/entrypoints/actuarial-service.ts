@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { PrismaModule } from '../prisma/prisma.module';
+import { AuthModule } from '../auth/auth.module';
 import { ActuarialModule } from '../actuarial/actuarial.module';
 import { PoliciesModule } from '../policies/policies.module';
 import { HealthModule } from '../health/health.module';
@@ -22,6 +23,7 @@ import { TransformInterceptor } from '../common/interceptors/transform.intercept
     RedisModule,
     RabbitMQModule,
     PrismaModule,
+    AuthModule,
     ActuarialModule,
     PoliciesModule,
     HealthModule,
