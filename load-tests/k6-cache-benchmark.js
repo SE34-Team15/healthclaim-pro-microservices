@@ -69,7 +69,8 @@ export default function () {
     'cache state verified': (r) => {
       try {
         const body = JSON.parse(r.body);
-        return BYPASS_CACHE ? body.cached === false : body.cached === true;
+        const isCached = body.data?.cached !== undefined ? body.data.cached : body.cached;
+        return BYPASS_CACHE ? isCached === false : isCached === true;
       } catch {
         return false;
       }

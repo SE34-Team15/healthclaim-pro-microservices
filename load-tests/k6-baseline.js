@@ -79,7 +79,8 @@ export default function () {
     'rule evaluation completed': (r) => {
       try {
         const body = JSON.parse(r.body);
-        return body.results !== undefined;
+        const results = body.data?.results !== undefined ? body.data.results : body.results;
+        return results !== undefined;
       } catch {
         return false;
       }
