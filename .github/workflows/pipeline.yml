@@ -371,6 +371,8 @@ jobs:
               "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml",
               "cd /opt/healthclaim-pro-microservices",
               "git fetch origin main && git reset --hard origin/main",
+              "k3s kubectl apply -f deploy/k8s/01-config.yaml",
+              "k3s kubectl create secret generic healthclaim-secrets -n healthclaim --from-literal=DATABASE_URL=\"${{ secrets.DATABASE_URL }}\" --from-literal=JWT_SECRET=\"${{ secrets.JWT_SECRET }}\" --from-literal=RESEND_API_KEY=\"${{ secrets.RESEND_API_KEY }}\" --from-literal=S3_ACCESS_KEY=\"minioadmin\" --from-literal=S3_SECRET_KEY=\"minioadmin\" --dry-run=client -o yaml | k3s kubectl apply -f -",
               "docker build -t healthclaim-microservice:latest -f Dockerfile .",
               "docker save healthclaim-microservice:latest | k3s ctr images import -",
               "k3s kubectl rollout restart deployment -n healthclaim api-gateway claim-service rule-engine-service actuarial-service settlement-worker",
