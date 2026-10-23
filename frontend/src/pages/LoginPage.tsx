@@ -45,7 +45,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ defaultTab }) => {
   const [lastName, setLastName] = useState('');
   const [department, setDepartment] = useState('');
   const [departments, setDepartments] = useState<DepartmentResponseDto[]>([]);
-  const [role, setRole] = useState<UserRole>(UserRole.EMPLOYEE);
   const [loading, setLoading] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -100,18 +99,22 @@ export const LoginPage: React.FC<LoginPageProps> = ({ defaultTab }) => {
           firstName,
           lastName,
           department: department || undefined,
-          role,
+          role: UserRole.EMPLOYEE,
         });
         toast.success(
-          'Account created! A verification link has been sent to your email. Please verify before signing in.',
-          { duration: 7000 },
+          'Registration submitted! Your account is pending administrator activation before you can sign in.',
+          { duration: 8000 },
         );
         setActiveTab('login');
         setPassword('');
       }
     } catch (err: any) {
       const errMsg = err.message || 'Authentication failed. Please check credentials.';
-      if (errMsg.toLowerCase().includes('verify your email')) {
+      if (errMsg.toLowerCase().includes('pending administrator activation')) {
+        toast.error('Your account is pending administrator activation. Please contact your system administrator.', {
+          duration: 9000,
+        });
+      } else if (errMsg.toLowerCase().includes('verify your email')) {
         toast.error(errMsg, {
           duration: 10000,
           action: {
@@ -230,37 +233,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ defaultTab }) => {
                           <span className="ml-2 text-[10px] text-slate-400 font-mono">({dept.code})</span>
                         </SelectItem>
                       ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="gsap-reveal">
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Enterprise Role
-                  </label>
-                  <Select
-                    value={role}
-                    onValueChange={(val) => setRole(val as UserRole)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={UserRole.EMPLOYEE}>
-                        Employee (Submit Claims & View Quota)
-                      </SelectItem>
-                      <SelectItem value={UserRole.CLAIM_OFFICER}>
-                        Claim Officer (Review & AST Audit)
-                      </SelectItem>
-                      <SelectItem value={UserRole.FINANCE_MANAGER}>
-                        Finance Manager (Settlement Approval)
-                      </SelectItem>
-                      <SelectItem value={UserRole.SYSTEM_ADMIN}>
-                        System Administrator
-                      </SelectItem>
-                      <SelectItem value={UserRole.SECURITY_AUDITOR}>
-                        Security Auditor
-                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

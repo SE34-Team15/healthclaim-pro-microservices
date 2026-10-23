@@ -20,7 +20,7 @@ export const RegisterRequestSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
   department: z.string().optional(),
-  role: z.nativeEnum(UserRole).default(UserRole.EMPLOYEE),
+  role: z.nativeEnum(UserRole).optional().default(UserRole.EMPLOYEE),
 });
 
 export type RegisterRequest = z.infer<typeof RegisterRequestSchema>;

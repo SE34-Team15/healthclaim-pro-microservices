@@ -193,6 +193,7 @@ export class UsersService {
    */
   async getAllUsers(params?: {
     role?: UserRole;
+    status?: UserStatus;
     search?: string;
     page?: number;
     pageSize?: number;
@@ -206,6 +207,9 @@ export class UsersService {
     if (params?.role) {
       where.role = params.role;
     }
+    if (params?.status && params.status !== ('ALL' as any)) {
+      where.status = params.status;
+    }
     if (params?.search) {
       where.OR = [
         { email: { contains: params.search, mode: 'insensitive' } },
@@ -215,8 +219,11 @@ export class UsersService {
       ];
     }
 
-    const [total, users] = await Promise.all([
+    const [total, activeCount, inactiveCount, suspendedCount, users] = await Promise.all([
       this.prisma.user.count({ where }),
+      this.prisma.user.count({ where: { status: UserStatus.ACTIVE } }),
+      this.prisma.user.count({ where: { status: UserStatus.INACTIVE } }),
+      this.prisma.user.count({ where: { status: UserStatus.SUSPENDED } }),
       this.prisma.user.findMany({
         where,
         skip,
@@ -265,6 +272,12 @@ export class UsersService {
       page,
       pageSize,
       totalPages: Math.ceil(total / pageSize),
+      counts: {
+        all: activeCount + inactiveCount + suspendedCount,
+        active: activeCount,
+        inactive: inactiveCount,
+        suspended: suspendedCount,
+      },
     };
   }
 
@@ -319,9 +332,14 @@ export class UsersService {
     }
 
     const previousStatus = user.status;
+    const updateData: any = { status: dto.status as any };
+    if (dto.status === UserStatus.ACTIVE && !user.isEmailVerified) {
+      updateData.isEmailVerified = true;
+    }
+
     const updated = await this.prisma.user.update({
       where: { id: targetUserId },
-      data: { status: dto.status as any },
+      data: updateData,
     });
 
     await this.prisma.auditLog.create({

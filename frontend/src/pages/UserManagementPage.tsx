@@ -64,6 +64,13 @@ export const UserManagementPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('ALL');
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [statusCounts, setStatusCounts] = useState<{
+    all: number;
+    active: number;
+    inactive: number;
+    suspended: number;
+  }>({ all: 0, active: 0, inactive: 0, suspended: 0 });
 
   // Pagination State
   const [page, setPage] = useState(1);
@@ -142,6 +149,18 @@ export const UserManagementPage: React.FC = () => {
     }
   };
 
+  const handleQuickActivate = async (u: UserRecord) => {
+    try {
+      await apiClient.patch(`/users/${u.id}/status`, {
+        status: UserStatus.ACTIVE,
+      });
+      toast.success(`Account for ${u.firstName} ${u.lastName} (${u.email}) is now ACTIVE!`);
+      fetchUsers();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to activate user');
+    }
+  };
+
   const fetchUsers = async () => {
     setLoading(true);
     try {
@@ -150,14 +169,25 @@ export const UserManagementPage: React.FC = () => {
       params.append('pageSize', String(pageSize));
       if (search.trim()) params.append('search', search.trim());
       if (roleFilter && roleFilter !== 'ALL') params.append('role', roleFilter);
+      if (statusFilter && statusFilter !== 'ALL') params.append('status', statusFilter);
 
       const data = await apiClient.get<
         any,
-        { items: UserRecord[]; total: number; page: number; pageSize: number; totalPages: number }
+        {
+          items: UserRecord[];
+          total: number;
+          page: number;
+          pageSize: number;
+          totalPages: number;
+          counts?: { all: number; active: number; inactive: number; suspended: number };
+        }
       >(`/users?${params.toString()}`);
       setUsers(data.items);
       setTotal(data.total);
       setTotalPages(data.totalPages);
+      if (data.counts) {
+        setStatusCounts(data.counts);
+      }
     } catch (err: any) {
       toast.error(err.message || 'Failed to fetch users');
     } finally {
@@ -191,7 +221,7 @@ export const UserManagementPage: React.FC = () => {
 
   useEffect(() => {
     fetchUsers();
-  }, [page, pageSize, roleFilter]);
+  }, [page, pageSize, roleFilter, statusFilter]);
 
   useEffect(() => {
     fetchTiers();
@@ -338,6 +368,37 @@ export const UserManagementPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Account Status Tabs */}
+      <div className="flex border-b border-slate-200 gap-1 sm:gap-4 overflow-x-auto">
+        {[
+          { key: 'ALL', label: 'All Accounts', count: statusCounts.all, color: 'bg-slate-100 text-slate-700' },
+          { key: UserStatus.INACTIVE, label: 'Pending Activation', count: statusCounts.inactive, color: 'bg-amber-100 text-amber-800' },
+          { key: UserStatus.ACTIVE, label: 'Active', count: statusCounts.active, color: 'bg-emerald-100 text-emerald-800' },
+          { key: UserStatus.SUSPENDED, label: 'Suspended', count: statusCounts.suspended, color: 'bg-rose-100 text-rose-800' },
+        ].map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => {
+              setStatusFilter(tab.key);
+              setPage(1);
+            }}
+            className={`pb-3 px-3 text-xs sm:text-sm font-semibold flex items-center gap-2 border-b-2 transition-all whitespace-nowrap cursor-pointer ${
+              statusFilter === tab.key
+                ? 'border-[#0a2540] text-[#0a2540]'
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+            }`}
+          >
+            <span>{tab.label}</span>
+            {tab.count !== undefined && (
+              <span className={`text-[11px] px-2 py-0.5 rounded-full font-mono font-bold ${tab.color}`}>
+                {tab.count}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
       {/* Filters Bar */}
       <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row gap-3 items-center justify-between">
         <form onSubmit={handleSearchSubmit} className="relative flex-1 w-full sm:w-auto">
@@ -380,6 +441,7 @@ export const UserManagementPage: React.FC = () => {
                 <th className="py-3.5 px-5">Member</th>
                 <th className="py-3.5 px-4">Department</th>
                 <th className="py-3.5 px-4">RBAC Role</th>
+                <th className="py-3.5 px-4">Status</th>
                 <th className="py-3.5 px-4">Benefit Plan</th>
                 <th className="py-3.5 px-4">Remaining / Quota</th>
                 <th className="py-3.5 px-5 text-right">Actions</th>
@@ -388,13 +450,13 @@ export const UserManagementPage: React.FC = () => {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-12 text-slate-400">
+                  <td colSpan={7} className="text-center py-12 text-slate-400">
                     Loading directory...
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-12 text-slate-400">
+                  <td colSpan={7} className="text-center py-12 text-slate-400">
                     No members found matching criteria.
                   </td>
                 </tr>
@@ -429,6 +491,26 @@ export const UserManagementPage: React.FC = () => {
                         </SelectContent>
                       </Select>
                     </td>
+                    <td className="py-3.5 px-4">
+                      {u.status === UserStatus.ACTIVE && (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                          Active
+                        </span>
+                      )}
+                      {u.status === UserStatus.INACTIVE && (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                          Pending Activation
+                        </span>
+                      )}
+                      {u.status === UserStatus.SUSPENDED && (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                          <span className="h-1.5 w-1.5 rounded-full bg-rose-500"></span>
+                          Suspended
+                        </span>
+                      )}
+                    </td>
                     <td className="py-3.5 px-4 font-medium text-slate-700">
                       {u.role === UserRole.EMPLOYEE ? (
                         u.benefitTier
@@ -450,6 +532,17 @@ export const UserManagementPage: React.FC = () => {
                     </td>
                     <td className="py-3.5 px-5 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        {u.status === UserStatus.INACTIVE && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleQuickActivate(u)}
+                            className="h-7 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-medium gap-1 shadow-xs cursor-pointer"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                            <span>Activate</span>
+                          </Button>
+                        )}
+
                         <Button
                           variant="outline"
                           size="sm"

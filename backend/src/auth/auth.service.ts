@@ -26,6 +26,9 @@ export class AuthService {
     }
 
     if (user.status !== UserStatus.ACTIVE) {
+      if (user.status === UserStatus.INACTIVE) {
+        throw new UnauthorizedException('Your account is pending administrator activation. Please contact your system administrator.');
+      }
       throw new UnauthorizedException(`Account is ${user.status.toLowerCase()}`);
     }
 
@@ -89,8 +92,8 @@ export class AuthService {
         firstName: registerDto.firstName,
         lastName: registerDto.lastName,
         department: registerDto.department,
-        role: registerDto.role,
-        status: UserStatus.ACTIVE,
+        role: UserRole.EMPLOYEE,
+        status: UserStatus.INACTIVE,
         isEmailVerified: false,
       },
     });

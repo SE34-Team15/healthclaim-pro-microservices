@@ -293,13 +293,13 @@ async function main() {
     {
       code: 'RULE_HOSPITAL_GRADE',
       name: 'Accredited Healthcare Provider Requirement',
-      description: 'Medical services must be rendered by MOH-licensed Public Restructured Hospitals, Private Hospitals, or registered Specialist Medical Centres.',
+      description: 'Medical services must be rendered by accredited Grade 3A, Grade A, or certified Specialist Clinics for straight-through auto-validation.',
       priority: 10,
       astDefinition: {
         type: 'COMPARISON',
         field: 'hospitalGrade',
         operator: 'IN',
-        value: ['PUBLIC_TERTIARY', 'PRIVATE_TERTIARY', 'SPECIALIST_CENTRE', 'COMMUNITY_HOSPITAL', 'GP_CLINIC'],
+        value: ['GRADE_3A', 'GRADE_A', 'SPECIALIST_CLINIC'],
       },
     },
     {
@@ -357,7 +357,7 @@ async function main() {
       user: employeeUser,
       category: ClaimCategory.HOSPITALIZATION,
       hospitalName: 'Singapore General Hospital (SGH)',
-      hospitalGrade: 'PUBLIC_TERTIARY',
+      hospitalGrade: 'GRADE_3A',
       invoiceDate: new Date('2026-06-15T09:00:00Z'),
       createdAt: new Date('2026-06-18T09:00:00Z'),
       reviewedAt: new Date('2026-06-18T13:15:00Z'), // 4.25 hours review latency
@@ -379,7 +379,7 @@ async function main() {
       user: employeeUser,
       category: ClaimCategory.DENTAL,
       hospitalName: 'Novena Specialist Dental Care',
-      hospitalGrade: 'SPECIALIST_CENTRE',
+      hospitalGrade: 'SPECIALIST_CLINIC',
       invoiceDate: new Date('2026-07-20T10:00:00Z'),
       createdAt: new Date('2026-07-22T10:00:00Z'),
       reviewedAt: new Date('2026-07-22T12:30:00Z'), // 2.5 hours review latency
@@ -401,7 +401,7 @@ async function main() {
       user: employeeUser,
       category: ClaimCategory.CONSULTATION,
       hospitalName: 'National University Hospital (NUH) Outpatient Clinic',
-      hospitalGrade: 'PUBLIC_TERTIARY',
+      hospitalGrade: 'GRADE_3A',
       invoiceDate: new Date('2026-08-10T14:20:00Z'),
       createdAt: new Date('2026-08-10T14:20:00Z'),
       reviewedAt: new Date('2026-08-10T14:20:05Z'), // Straight through in 5 seconds
@@ -422,7 +422,7 @@ async function main() {
       user: execEmployee,
       category: ClaimCategory.HEALTH_SCREENING,
       hospitalName: 'Gleneagles Hospital Executive Health Clinic',
-      hospitalGrade: 'PRIVATE_TERTIARY',
+      hospitalGrade: 'GRADE_A',
       invoiceDate: new Date('2026-05-12T08:30:00Z'),
       createdAt: new Date('2026-05-15T08:30:00Z'),
       reviewedAt: new Date('2026-05-15T10:00:00Z'), // 1.5 hours review latency
@@ -444,7 +444,7 @@ async function main() {
       user: prodEmployee,
       category: ClaimCategory.OPTICAL,
       hospitalName: 'Mount Elizabeth Specialist Eye & Vision Centre',
-      hospitalGrade: 'SPECIALIST_CENTRE',
+      hospitalGrade: 'SPECIALIST_CLINIC',
       invoiceDate: new Date('2026-06-25T11:00:00Z'),
       createdAt: new Date('2026-06-28T11:00:00Z'),
       reviewedAt: new Date('2026-06-28T13:45:00Z'), // 2.75 hours review latency
@@ -466,7 +466,7 @@ async function main() {
       user: salesEmployee,
       category: ClaimCategory.CONSULTATION,
       hospitalName: 'SingHealth Polyclinic & Community Hospital',
-      hospitalGrade: 'COMMUNITY_HOSPITAL',
+      hospitalGrade: 'PUBLIC_HOSPITAL',
       invoiceDate: new Date('2026-08-05T09:30:00Z'),
       createdAt: new Date('2026-08-08T09:30:00Z'),
       reviewedAt: new Date('2026-08-08T12:00:00Z'), // 2.5 hours review latency
@@ -488,7 +488,7 @@ async function main() {
       user: hrEmployee,
       category: ClaimCategory.CONSULTATION,
       hospitalName: 'Tan Tock Seng Hospital (TTSH) Specialist Outpatient Clinic',
-      hospitalGrade: 'PUBLIC_TERTIARY',
+      hospitalGrade: 'GRADE_3A',
       invoiceDate: new Date('2026-07-15T14:00:00Z'),
       createdAt: new Date('2026-07-18T14:00:00Z'),
       reviewedAt: new Date('2026-07-18T16:15:00Z'), // 2.25 hours review latency
@@ -509,7 +509,7 @@ async function main() {
       user: opsEmployee,
       category: ClaimCategory.DENTAL,
       hospitalName: 'Raffles Medical Family Dental Clinic',
-      hospitalGrade: 'GP_CLINIC',
+      hospitalGrade: 'COMMUNITY_CLINIC',
       invoiceDate: new Date('2026-08-22T15:00:00Z'),
       createdAt: new Date('2026-08-22T15:00:00Z'),
       reviewedAt: null, // Pending officer review
@@ -565,13 +565,16 @@ async function main() {
       });
 
       // Add Rule Evaluation Logs for AST telemetry
+      const isHospitalAccredited = ['GRADE_3A', 'GRADE_A', 'SPECIALIST_CLINIC'].includes(sc.hospitalGrade);
       await prisma.ruleEvaluationLog.create({
         data: {
           claimId: createdClaim.id,
           ruleCode: 'RULE_HOSPITAL_GRADE',
-          ruleName: 'Hospital Qualification Requirement',
-          isPassed: sc.hospitalGrade !== 'CLINIC',
-          reason: sc.hospitalGrade === 'CLINIC' ? 'Unaccredited clinic requires manual review' : 'Institution verified Grade A / 3A',
+          ruleName: 'Accredited Healthcare Provider Requirement',
+          isPassed: isHospitalAccredited,
+          reason: isHospitalAccredited
+            ? 'Healthcare provider accredited (Grade A / 3A / Specialist Clinic)'
+            : 'Unaccredited community clinic or general provider requires manual review',
         },
       });
 

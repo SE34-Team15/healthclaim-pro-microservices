@@ -15,6 +15,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser, AuthenticatedUser } from '../auth/decorators/current-user.decorator';
 import {
   UserRole,
+  UserStatus,
   UpdateUserRole,
   UpdateUserRoleSchema,
   UpdateUserStatus,
@@ -62,9 +63,11 @@ export class UsersController {
     @Query('search') search?: string,
     @Query('page') page?: string,
     @Query('pageSize') pageSize?: string,
+    @Query('status') status?: UserStatus,
   ) {
     return this.usersService.getAllUsers({
       role,
+      status,
       search,
       page: page ? parseInt(page, 10) : undefined,
       pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
