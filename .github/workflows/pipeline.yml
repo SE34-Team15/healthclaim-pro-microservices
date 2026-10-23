@@ -383,14 +383,21 @@ jobs:
           IMAGE_URI="${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:microservices-latest"
           REGISTRY="${{ steps.login-ecr.outputs.registry }}"
           
+          # Obtain temporary ECR authorization token on the GitHub runner (where AWS CLI and IAM are configured)
+          ECR_PASSWORD=$(aws ecr get-login-password --region "${{ env.AWS_REGION }}")
+          
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
             --parameters "commands=[
               \"set -e\",
               \"export KUBECONFIG=/etc/rancher/k3s/k3s.yaml\",
-              \"if command -v docker >/dev/null 2>&1; then aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin $REGISTRY && docker pull $IMAGE_URI && docker tag $IMAGE_URI healthclaim-microservice:latest && docker save healthclaim-microservice:latest | k3s ctr images import -; else TOKEN=\$(aws ecr get-login-password --region ${{ env.AWS_REGION }}); k3s ctr images pull --user AWS:\$TOKEN $IMAGE_URI; k3s ctr images tag $IMAGE_URI docker.io/library/healthclaim-microservice:latest; fi\",
-              \"k3s kubectl rollout restart deployment -n healthclaim api-gateway claim-service rule-engine-service actuarial-service settlement-worker\",
+              \"if command -v docker >/dev/null 2>&1; then echo '$ECR_PASSWORD' | docker login --username AWS --password-stdin $REGISTRY && docker pull $IMAGE_URI && docker tag $IMAGE_URI healthclaim-microservice:latest && docker save healthclaim-microservice:latest | k3s ctr images import -; else k3s ctr images pull --user AWS:'$ECR_PASSWORD' $IMAGE_URI && k3s ctr images tag $IMAGE_URI docker.io/library/healthclaim-microservice:latest; fi\",
+              \"k3s kubectl rollout restart deployment -n healthclaim api-gateway\",
+              \"k3s kubectl rollout restart deployment -n healthclaim claim-service\",
+              \"k3s kubectl rollout restart deployment -n healthclaim rule-engine-service\",
+              \"k3s kubectl rollout restart deployment -n healthclaim actuarial-service\",
+              \"k3s kubectl rollout restart deployment -n healthclaim settlement-worker\",
               \"k3s kubectl rollout status deployment/api-gateway -n healthclaim --timeout=120s\",
               \"k3s kubectl rollout status deployment/claim-service -n healthclaim --timeout=120s\",
               \"k3s kubectl rollout status deployment/rule-engine-service -n healthclaim --timeout=120s\",

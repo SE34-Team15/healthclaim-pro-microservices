@@ -13,7 +13,6 @@ data:
   API_PREFIX: "/api/v1"
   PORT: "3000"
   REDIS_URL: "redis://healthclaim-redis:6379"
-  RABBITMQ_URL: "amqp://healthclaim_mq:healthclaim_mq_pass@healthclaim-rabbitmq:5672"
   RABBITMQ_EXCHANGE: "healthclaim.events"
   CLAIM_SERVICE_URL: "http://claim-service:3001"
   RULE_ENGINE_SERVICE_URL: "http://rule-engine-service:3002"
