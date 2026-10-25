@@ -15,11 +15,11 @@ export const options = {
   ],
   thresholds: {
     http_req_failed: ['rate<0.01'],    // Under 1% failures expected with HPA
-    http_req_duration: ['p(95)<800'],  // P95 latency threshold tailored for public cloud WAN & Cloudflare (<800ms)
+    http_req_duration: ['p(95)<300'],  // P95 latency expected to remain < 300ms
   },
 };
 
-const BASE_URL = __ENV.TARGET_URL || 'https://ms.healthclaim.pro';
+const BASE_URL = __ENV.TARGET_URL || 'http://localhost:4000';
 
 const SAMPLE_DIAGNOSES = [
   'J06.9 - Acute upper respiratory infection',
