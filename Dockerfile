@@ -55,9 +55,8 @@ COPY --from=builder /app/package.json ./package.json
 # Copy compiled frontend SPA to backend/public
 COPY --from=builder /app/frontend/dist ./backend/public
 
-# Pre-create upload directories and set ownership
-RUN mkdir -p /app/backend/uploads/receipts/vouchers && \
-    chown -R nestjs:nodejs /app
+# Set ownership
+RUN chown -R nestjs:nodejs /app
 
 USER nestjs
 WORKDIR /app/backend
