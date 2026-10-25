@@ -398,6 +398,9 @@ jobs:
           # Obtain temporary ECR authorization token on the GitHub runner (where AWS CLI and IAM are configured)
           ECR_PASSWORD=$(aws ecr get-login-password --region "${{ env.AWS_REGION }}")
           
+          # Base64 encode the updated Kubernetes microservice manifests containing readiness probes
+          K8S_03_B64=$(base64 -w 0 deploy/k8s/03-microservices.yaml 2>/dev/null || base64 deploy/k8s/03-microservices.yaml | tr -d '\n')
+          
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
@@ -405,6 +408,8 @@ jobs:
               \"set -e\",
               \"export KUBECONFIG=/etc/rancher/k3s/k3s.yaml\",
               \"if command -v docker >/dev/null 2>&1; then echo '$ECR_PASSWORD' | docker login --username AWS --password-stdin $REGISTRY && docker pull $IMAGE_URI && docker tag $IMAGE_URI healthclaim-microservice:latest && docker save healthclaim-microservice:latest | k3s ctr images import -; else k3s ctr images pull --user AWS:'$ECR_PASSWORD' $IMAGE_URI && k3s ctr images tag $IMAGE_URI docker.io/library/healthclaim-microservice:latest; fi\",
+              \"echo '$K8S_03_B64' | base64 -d > /tmp/03-microservices.yaml\",
+              \"k3s kubectl apply -f /tmp/03-microservices.yaml\",
               \"k3s kubectl rollout restart deployment -n healthclaim api-gateway\",
               \"k3s kubectl rollout restart deployment -n healthclaim claim-service\",
               \"k3s kubectl rollout restart deployment -n healthclaim rule-engine-service\",
