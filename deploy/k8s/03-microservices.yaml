@@ -29,6 +29,13 @@ spec:
               value: "3001"
           ports:
             - containerPort: 3001
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 3001
+            initialDelaySeconds: 2
+            periodSeconds: 2
+            failureThreshold: 3
           resources:
             requests:
               cpu: "100m"
@@ -80,6 +87,13 @@ spec:
               value: "3002"
           ports:
             - containerPort: 3002
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 3002
+            initialDelaySeconds: 2
+            periodSeconds: 2
+            failureThreshold: 3
           resources:
             requests:
               cpu: "100m"
@@ -131,6 +145,13 @@ spec:
               value: "3003"
           ports:
             - containerPort: 3003
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 3003
+            initialDelaySeconds: 2
+            periodSeconds: 2
+            failureThreshold: 3
           resources:
             requests:
               cpu: "100m"
