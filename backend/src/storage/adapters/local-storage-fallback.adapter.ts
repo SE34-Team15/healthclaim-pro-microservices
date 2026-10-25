@@ -17,6 +17,10 @@ export class LocalStorageFallbackAdapter implements IStorageService {
 
   async storeFile(buffer: Buffer, storageKey: string): Promise<void> {
     const fullPath = path.join(this.storageDir, storageKey);
+    const parentDir = path.dirname(fullPath);
+    if (!fs.existsSync(parentDir)) {
+      await fs.promises.mkdir(parentDir, { recursive: true });
+    }
     await fs.promises.writeFile(fullPath, buffer);
   }
 

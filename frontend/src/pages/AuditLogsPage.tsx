@@ -365,6 +365,8 @@ export const AuditLogsPage: React.FC = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">All Audit Actions</SelectItem>
+                <SelectItem value="GENERATE_SETTLEMENT_VOUCHER">GENERATE_SETTLEMENT_VOUCHER</SelectItem>
+                <SelectItem value="TRANSITION_CLAIM_STATUS">TRANSITION_CLAIM_STATUS</SelectItem>
                 <SelectItem value="SUBMIT_CLAIM">SUBMIT_CLAIM</SelectItem>
                 <SelectItem value="USER_LOGIN">USER_LOGIN</SelectItem>
                 <SelectItem value="UPDATE_SELF_PROFILE">UPDATE_SELF_PROFILE</SelectItem>
