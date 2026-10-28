@@ -12,7 +12,6 @@ data:
   NODE_ENV: "production"
   API_PREFIX: "/api/v1"
   PORT: "3000"
-  REDIS_URL: "redis://healthclaim-redis.j1z41t.0001.apse1.cache.amazonaws.com:6379"
   RABBITMQ_EXCHANGE: "healthclaim.events"
   CLAIM_SERVICE_URL: "http://claim-service:3001"
   RULE_ENGINE_SERVICE_URL: "http://rule-engine-service:3002"
