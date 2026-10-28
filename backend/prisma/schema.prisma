@@ -1,10 +1,12 @@
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  schemas  = ["iam_service", "claim_service", "rule_service", "actuarial_service"]
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
 }
 
 enum Role {
@@ -13,6 +15,8 @@ enum Role {
   FINANCE_MANAGER
   SYSTEM_ADMIN
   SECURITY_AUDITOR
+
+  @@schema("iam_service")
 }
 
 enum UserStatus {
@@ -20,6 +24,8 @@ enum UserStatus {
   INACTIVE
   SUSPENDED
   DEACTIVATED
+
+  @@schema("iam_service")
 }
 
 enum ClaimCategory {
@@ -31,6 +37,8 @@ enum ClaimCategory {
   OPTICAL
   HEALTH_SCREENING
   OTHER
+
+  @@schema("claim_service")
 }
 
 enum ClaimStatus {
@@ -42,98 +50,105 @@ enum ClaimStatus {
   FINANCE_APPROVED
   SETTLED
   CANCELLED
+
+  @@schema("claim_service")
 }
 
 model User {
-  id              String            @id @default(uuid())
-  email           String            @unique
+  id              String     @id @default(uuid())
+  email           String     @unique
   passwordHash    String
   firstName       String
   lastName        String
-  role            Role              @default(EMPLOYEE)
-  status          UserStatus        @default(ACTIVE)
+  role            Role       @default(EMPLOYEE)
+  status          UserStatus @default(ACTIVE)
   department      String?
-  isEmailVerified Boolean           @default(false)
-  
-  quotas          UserPolicyQuota[]
-  claims          Claim[]
-  auditLogs       AuditLog[]
-  attachments     ReceiptAttachment[]
-  
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  isEmailVerified Boolean    @default(false)
+
+  quotas      UserPolicyQuota[]
+  claims      Claim[]
+  auditLogs   AuditLog[]
+  attachments ReceiptAttachment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([email])
   @@index([role])
+  @@schema("iam_service")
 }
 
 model BenefitTier {
-  id                String            @id @default(uuid())
-  name              String            @unique
-  code              String            @unique
+  id                String  @id @default(uuid())
+  name              String  @unique
+  code              String  @unique
   description       String?
-  annualLimit       Decimal           @db.Decimal(12, 2)
-  defaultDeductible Decimal           @db.Decimal(12, 2)
-  defaultCoPayRate  Decimal           @db.Decimal(5, 4)
-  isActive          Boolean           @default(true)
-  
-  userQuotas        UserPolicyQuota[]
-  
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  annualLimit       Decimal @db.Decimal(12, 2)
+  defaultDeductible Decimal @db.Decimal(12, 2)
+  defaultCoPayRate  Decimal @db.Decimal(5, 4)
+  isActive          Boolean @default(true)
+
+  userQuotas UserPolicyQuota[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@schema("actuarial_service")
 }
 
 model UserPolicyQuota {
-  id                       String       @id @default(uuid())
-  userId                   String
-  user                     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  benefitTierId            String
-  benefitTier              BenefitTier  @relation(fields: [benefitTierId], references: [id])
-  fiscalYear               Int
-  annualLimit              Decimal      @db.Decimal(12, 2)
-  remainingBalance         Decimal      @db.Decimal(12, 2)
-  cumulativeDeductibleSpent Decimal      @default(0) @db.Decimal(12, 2)
-  
-  createdAt                DateTime     @default(now())
-  updatedAt                DateTime     @updatedAt
+  id                        String      @id @default(uuid())
+  userId                    String
+  user                      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  benefitTierId             String
+  benefitTier               BenefitTier @relation(fields: [benefitTierId], references: [id])
+  fiscalYear                Int
+  annualLimit               Decimal     @db.Decimal(12, 2)
+  remainingBalance          Decimal     @db.Decimal(12, 2)
+  cumulativeDeductibleSpent Decimal     @default(0) @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([userId, fiscalYear])
   @@index([userId])
   @@index([benefitTierId])
+  @@schema("actuarial_service")
 }
 
 model Claim {
-  id                 String              @id @default(uuid())
-  claimNumber        String              @unique
-  userId             String
-  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  fiscalYear         Int
-  category           ClaimCategory
-  hospitalName       String
-  hospitalGrade      String?             @default("GRADE_A")
-  invoiceDate        DateTime
-  totalAmount        Decimal             @db.Decimal(12, 2)
-  deductibleCovered  Decimal             @default(0) @db.Decimal(12, 2)
-  coPayRate          Decimal             @db.Decimal(5, 4)
-  approvedAmount     Decimal             @default(0) @db.Decimal(12, 2)
-  outOfPocketAmount  Decimal             @default(0) @db.Decimal(12, 2)
-  status             ClaimStatus         @default(SUBMITTED)
-  statusReason       String?
-  reviewedBy         String?
-  reviewedAt         DateTime?
-  notes              String?
-  
-  items              ClaimItem[]
-  ruleEvaluations    RuleEvaluationLog[]
-  attachments        ReceiptAttachment[]
-  
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  id                String        @id @default(uuid())
+  claimNumber       String        @unique
+  userId            String
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fiscalYear        Int
+  category          ClaimCategory
+  hospitalName      String
+  hospitalGrade     String?       @default("GRADE_A")
+  invoiceDate       DateTime
+  totalAmount       Decimal       @db.Decimal(12, 2)
+  deductibleCovered Decimal       @default(0) @db.Decimal(12, 2)
+  coPayRate         Decimal       @db.Decimal(5, 4)
+  approvedAmount    Decimal       @default(0) @db.Decimal(12, 2)
+  outOfPocketAmount Decimal       @default(0) @db.Decimal(12, 2)
+  status            ClaimStatus   @default(SUBMITTED)
+  statusReason      String?
+  reviewedBy        String?
+  reviewedAt        DateTime?
+  notes             String?
+
+  items           ClaimItem[]
+  ruleEvaluations RuleEvaluationLog[]
+  attachments     ReceiptAttachment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([userId])
   @@index([status])
   @@index([claimNumber])
   @@index([fiscalYear])
+  @@schema("claim_service")
 }
 
 model ClaimItem {
@@ -147,69 +162,73 @@ model ClaimItem {
   totalPrice      Decimal       @db.Decimal(12, 2)
   isEligible      Boolean       @default(true)
   rejectionReason String?
-  
-  createdAt       DateTime      @default(now())
+
+  createdAt DateTime @default(now())
 
   @@index([claimId])
+  @@schema("claim_service")
 }
 
 model ReceiptAttachment {
-  id           String   @id @default(uuid())
+  id           String  @id @default(uuid())
   claimId      String?
-  claim        Claim?   @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  claim        Claim?  @relation(fields: [claimId], references: [id], onDelete: Cascade)
   userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   fileName     String
   fileSize     Int
   mimeType     String
-  storageKey   String   @unique
-  encryptedDek String?  // AES-256-GCM DEK encrypted with Master RSA/ECC Key
-  iv           String?  // 12-byte initialization vector hex
-  authTag      String?  // 16-byte GCM authentication tag hex
-  checksum     String   // SHA-256 integrity hash
-  magicHeader  String?  @default("HC_ENC") // Custom binary magic header
-  
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  storageKey   String  @unique
+  encryptedDek String? // AES-256-GCM DEK encrypted with Master RSA/ECC Key
+  iv           String? // 12-byte initialization vector hex
+  authTag      String? // 16-byte GCM authentication tag hex
+  checksum     String // SHA-256 integrity hash
+  magicHeader  String? @default("HC_ENC") // Custom binary magic header
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([claimId])
   @@index([userId])
   @@index([storageKey])
+  @@schema("claim_service")
 }
 
 model ComplianceRule {
-  id             String              @id @default(uuid())
-  code           String              @unique
-  name           String
-  description    String?
-  priority       Int                 @default(100)
-  astDefinition  Json
-  isActive       Boolean             @default(true)
-  
+  id            String  @id @default(uuid())
+  code          String  @unique
+  name          String
+  description   String?
+  priority      Int     @default(100)
+  astDefinition Json
+  isActive      Boolean @default(true)
+
   evaluationLogs RuleEvaluationLog[]
-  
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([code])
   @@index([isActive])
+  @@schema("rule_service")
 }
 
 model RuleEvaluationLog {
-  id             String         @id @default(uuid())
-  claimId        String
-  claim          Claim          @relation(fields: [claimId], references: [id], onDelete: Cascade)
-  ruleId         String?
-  rule           ComplianceRule? @relation(fields: [ruleId], references: [id], onDelete: SetNull)
-  ruleCode       String
-  ruleName       String
-  isPassed       Boolean
-  reason         String?
-  details        Json?
-  evaluatedAt    DateTime       @default(now())
+  id          String          @id @default(uuid())
+  claimId     String
+  claim       Claim           @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  ruleId      String?
+  rule        ComplianceRule? @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  ruleCode    String
+  ruleName    String
+  isPassed    Boolean
+  reason      String?
+  details     Json?
+  evaluatedAt DateTime        @default(now())
 
   @@index([claimId])
   @@index([ruleId])
+  @@schema("rule_service")
 }
 
 model AuditLog {
@@ -227,6 +246,7 @@ model AuditLog {
   @@index([actorId])
   @@index([action])
   @@index([createdAt])
+  @@schema("iam_service")
 }
 
 // TODO: Reserved for future Email Verification module
@@ -239,6 +259,7 @@ model VerificationToken {
 
   @@index([email])
   @@index([token])
+  @@schema("iam_service")
 }
 
 model Department {
@@ -252,4 +273,5 @@ model Department {
 
   @@index([code])
   @@index([isActive])
+  @@schema("iam_service")
 }
